@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid()) @db.Uuid
+  email         String         @unique
+  passwordHash  String         @map("password_hash")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  documents     Document[]
+  refreshTokens RefreshToken[]
+
+  @@map("user")
+}
+
+model RefreshToken {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @map("user_id") @db.Uuid
+  tokenHash           String    @unique @map("token_hash")
+  replacedByTokenHash String?   @map("replaced_by_token_hash")
+  expiresAt           DateTime  @map("expires_at")
+  revokedAt           DateTime? @map("revoked_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_token")
+}
+
+model Document {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  title      String
+  shareToken String?  @unique @map("share_token")
+  isPublic   Boolean  @default(false) @map("is_public")
+  isPinned   Boolean  @default(false) @map("is_pinned")
+  icon       String?
+  coverUrl   String?  @map("cover_url")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  blocks     Block[]
+
+  @@index([userId])
+  @@map("document")
+}
+
+model Block {
+  id         String    @id @default(uuid()) @db.Uuid
+  documentId String    @map("document_id") @db.Uuid
+  type       BlockType
+  content    Json
+  orderIndex Float     @map("order_index")
+  parentId   String?   @map("parent_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, orderIndex])
+  @@map("block")
+}
+
+enum BlockType {
+  paragraph
+  heading_1
+  heading_2
+  todo
+  code
+  divider
+  image
+}
