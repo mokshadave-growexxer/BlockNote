@@ -26,8 +26,8 @@ A BlockNote-style web application with a React frontend, Node.js/Express backend
 | `Ctrl/Cmd + Shift + P` | Pin/unpin document (editor) |
 | `Ctrl/Cmd + Shift + D` | Toggle dark/light mode |
 
-### 4. 🤖 AI Assist (Powered by Gemini)
-- **✨ AI Assist** button in editor toolbar with dropdown menu
+### 4. 🤖 Mio AI (Powered by Gemini)
+- **✨ Mio AI** button in editor toolbar with dropdown menu
 - Three AI actions:
   - **Grammar Check** — fixes grammar while preserving meaning (with Apply button)
   - **Paraphrase** — rewrites text in fresh words (with Apply button)

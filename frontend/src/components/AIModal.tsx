@@ -90,7 +90,7 @@ export function AIModal({ onApply }: AIModalProps) {
                 </div>
                 <div className="flex-1">
                   <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                    ✨ AI Assist — {action ? ACTION_LABELS[action] : ""}
+                    ✨ Mio AI — {action ? ACTION_LABELS[action] : ""}
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {action ? ACTION_DESCRIPTIONS[action] : ""}

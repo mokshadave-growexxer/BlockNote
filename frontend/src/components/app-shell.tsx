@@ -1,13 +1,12 @@
 import {
   FileText,
-  HelpCircle,
   LayoutDashboard,
   LogOut,
   MoonStar,
   Search,
   SunMedium
 } from "lucide-react";
-import type { PropsWithChildren } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../store/auth-store";
 import { useThemeStore } from "../store/theme-store";
@@ -17,9 +16,12 @@ type AppShellProps = PropsWithChildren<{
   title: string;
   subtitle: string;
   onLogout?: () => void;
+  sidebarContent?: ReactNode;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
 }>;
 
-export function AppShell({ children, onLogout, subtitle, title }: AppShellProps) {
+export function AppShell({ children, onLogout, onSearchChange, searchValue = "", sidebarContent, subtitle, title }: AppShellProps) {
   const user = useAuthStore((state) => state.user);
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
@@ -29,7 +31,7 @@ export function AppShell({ children, onLogout, subtitle, title }: AppShellProps)
   return (
     <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_18%_12%,rgba(139,92,246,0.20),transparent_32%),linear-gradient(135deg,#fbf9ff_0%,#f4efff_42%,#ffffff_100%)] text-slate-950 transition dark:bg-[radial-gradient(circle_at_18%_8%,rgba(139,92,246,0.22),transparent_34%),linear-gradient(135deg,#080b14_0%,#0c1020_48%,#050711_100%)] dark:text-white">
       <div className="flex min-h-screen">
-        <aside className="hidden w-72 shrink-0 border-r border-brand-200/50 bg-white/54 px-5 py-6 backdrop-blur-2xl dark:border-white/10 dark:bg-[#080b14]/70 lg:flex lg:flex-col">
+        <aside className="hidden fixed inset-y-0 left-0 z-40 h-screen w-72 shrink-0 border-r border-brand-200/50 bg-white/54 px-5 py-6 backdrop-blur-2xl dark:border-white/10 dark:bg-[#080b14]/70 lg:flex lg:flex-col">
           <Link to="/dashboard" className="group">
             <p className="font-serif text-2xl italic tracking-wide text-slate-950 dark:text-white">BlockNote</p>
             <p className="mt-2 text-[0.68rem] font-bold uppercase tracking-[0.36em] text-slate-500 dark:text-slate-400">
@@ -51,12 +53,14 @@ export function AppShell({ children, onLogout, subtitle, title }: AppShellProps)
             </Link>
           </nav>
 
+          {sidebarContent ? <div className="mt-3">{sidebarContent}</div> : null}
+
           <div className="mt-auto space-y-5">
             <div className="rounded-lg border border-brand-200/60 bg-white/50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
               <p className="text-xs font-bold uppercase tracking-[0.26em] text-brand-600 dark:text-brand-300">Signed in</p>
               <p className="mt-2 truncate text-sm text-slate-600 dark:text-slate-300">{user?.email}</p>
             </div>
-            <div className="flex items-center justify-between border-t border-brand-200/60 pt-5 dark:border-white/10">
+            <div className="flex items-center gap-3 border-t border-brand-200/60 pt-5 dark:border-white/10">
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -65,9 +69,6 @@ export function AppShell({ children, onLogout, subtitle, title }: AppShellProps)
               >
                 {theme === "dark" ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
               </button>
-              <button className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-400" type="button" aria-label="Help">
-                <HelpCircle className="h-4 w-4" />
-              </button>
               {onLogout ? (
                 <button
                   type="button"
@@ -75,14 +76,14 @@ export function AppShell({ children, onLogout, subtitle, title }: AppShellProps)
                   className="inline-flex items-center gap-2 rounded-lg border border-brand-200/70 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:text-rose-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
                 >
                   <LogOut className="h-4 w-4" />
-                  Exit
+                  Logout
                 </button>
               ) : null}
             </div>
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 min-h-0 flex-1 flex-col lg:pl-72">
           <header className="sticky top-0 z-30 border-b border-brand-200/50 bg-white/68 px-4 py-4 backdrop-blur-2xl dark:border-white/10 dark:bg-[#080b14]/74 sm:px-6 lg:px-10">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
@@ -96,7 +97,13 @@ export function AppShell({ children, onLogout, subtitle, title }: AppShellProps)
                 {!isEditor ? (
                   <label className="hidden h-11 w-72 items-center gap-2 rounded-lg border border-brand-200/70 bg-white/72 px-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.04] md:flex">
                     <Search className="h-4 w-4" />
-                    <span>Search notes in the library</span>
+                    <input
+                      type="text"
+                      value={searchValue}
+                      onChange={(event) => onSearchChange?.(event.target.value)}
+                      placeholder="Search notes in the library"
+                      className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-500 dark:text-slate-200 dark:placeholder:text-slate-400"
+                    />
                   </label>
                 ) : null}
                 <Link
@@ -106,27 +113,29 @@ export function AppShell({ children, onLogout, subtitle, title }: AppShellProps)
                 >
                   <FileText className="h-4 w-4" />
                 </Link>
-                <button
-                  type="button"
-                  onClick={toggleTheme}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-brand-200/70 bg-white/72 text-slate-600 transition hover:text-brand-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
-                  aria-label="Toggle theme"
-                >
-                  {theme === "dark" ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
-                </button>
-                {onLogout ? (
+                {isEditor ? (
+                  <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-brand-200/70 bg-white/72 text-slate-600 transition hover:text-brand-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+                    aria-label="Toggle theme"
+                  >
+                    {theme === "dark" ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
+                  </button>
+                ) : null}
+                {onLogout && isEditor ? (
                   <button
                     type="button"
                     onClick={onLogout}
                     className="hidden rounded-lg bg-gradient-to-r from-brand-300 to-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-glow transition hover:scale-[1.02] sm:inline-flex"
                   >
-                    Exit
+                    Logout
                   </button>
                 ) : null}
               </div>
             </div>
           </header>
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 min-h-0">{children}</main>
         </div>
       </div>
       <ToastContainer />

@@ -27,7 +27,9 @@ import { EmojiPicker } from "../../components/EmojiPicker";
 import { TemplateButton } from "../../components/templates/TemplateButton";
 import { TemplateModal } from "../../components/templates/TemplateModal";
 import { TEMPLATES } from "../../constants/templates";
+import { useDashboardShellContext } from "../../app/router";
 import toast from "../../lib/toast";
+import { useAuthStore } from "../../store/auth-store";
 import { useThemeStore } from "../../store/theme-store";
 
 type SortMode = "recent" | "oldest" | "title";
@@ -51,19 +53,24 @@ function getReadableTitle(title: string) {
 export function DocumentDashboard() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
   const { toggleTheme } = useThemeStore();
+  const { searchQuery } = useDashboardShellContext();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
-  const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("recent");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
-  const documentsQuery = useQuery({ queryKey: ["documents"], queryFn: fetchDocuments });
+  const documentsQuery = useQuery({
+    queryKey: ["documents", user?.id],
+    queryFn: fetchDocuments,
+    enabled: Boolean(user?.id)
+  });
 
   const createMutation = useMutation({
     mutationFn: () => createDocument(),
     onSuccess: async (doc) => {
-      await queryClient.invalidateQueries({ queryKey: ["documents"] });
+      await queryClient.invalidateQueries({ queryKey: ["documents", user?.id] });
       navigate(`/editor/${doc.id}`);
     },
     onError: () => toast.error("Failed to create document"),
@@ -74,14 +81,14 @@ export function DocumentDashboard() {
     onSuccess: async () => {
       setEditingId(null);
       setDraftTitle("");
-      await queryClient.invalidateQueries({ queryKey: ["documents"] });
+      await queryClient.invalidateQueries({ queryKey: ["documents", user?.id] });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteDocument,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["documents"] });
+      await queryClient.invalidateQueries({ queryKey: ["documents", user?.id] });
       toast.success("Document deleted");
     },
     onError: () => toast.error("Failed to delete document"),
@@ -90,29 +97,29 @@ export function DocumentDashboard() {
   const pinMutation = useMutation({
     mutationFn: togglePinDocument,
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ["documents"] });
-      const prev = queryClient.getQueryData<Awaited<ReturnType<typeof fetchDocuments>>>(["documents"]);
-      queryClient.setQueryData<Awaited<ReturnType<typeof fetchDocuments>>>(["documents"], (old) =>
+      await queryClient.cancelQueries({ queryKey: ["documents", user?.id] });
+      const prev = queryClient.getQueryData<Awaited<ReturnType<typeof fetchDocuments>>>(["documents", user?.id]);
+      queryClient.setQueryData<Awaited<ReturnType<typeof fetchDocuments>>>(["documents", user?.id], (old) =>
         old?.map((d) => d.id === id ? { ...d, isPinned: !d.isPinned } : d)
       );
       return { prev };
     },
     onError: (_err, _id, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(["documents"], ctx.prev);
+      if (ctx?.prev) queryClient.setQueryData(["documents", user?.id], ctx.prev);
       toast.error("Failed to update pin");
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["documents"] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["documents", user?.id] }),
   });
 
   const iconMutation = useMutation({
     mutationFn: ({ id, icon }: { id: string; icon: string | null }) => updateDocumentIcon(id, icon),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["documents"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["documents", user?.id] }),
   });
 
   const documents = useMemo(() => {
     const base = documentsQuery.data ?? [];
     const filtered = base.filter((document) =>
-      getReadableTitle(document.title).toLowerCase().includes(query.trim().toLowerCase())
+      getReadableTitle(document.title).toLowerCase().includes(searchQuery.trim().toLowerCase())
     );
 
     return [...filtered].sort((a, b) => {
@@ -122,7 +129,7 @@ export function DocumentDashboard() {
       const bTime = new Date(b.updatedAt).getTime();
       return sortMode === "oldest" ? aTime - bTime : bTime - aTime;
     });
-  }, [documentsQuery.data, query, sortMode]);
+  }, [documentsQuery.data, searchQuery, sortMode]);
 
   const pinned = documents.filter((document) => document.isPinned);
   const recent = documents.filter((document) => !document.isPinned);
@@ -339,17 +346,13 @@ export function DocumentDashboard() {
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   {documents.length} item{documents.length === 1 ? "" : "s"} in your library
                 </p>
+                {searchQuery.trim() ? (
+                  <p className="mt-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+                    Filtered by "{searchQuery.trim()}"
+                  </p>
+                ) : null}
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <label className="flex h-11 min-w-0 items-center gap-2 rounded-lg border border-brand-200/70 bg-white/70 px-3 text-sm text-slate-500 dark:border-white/10 dark:bg-[#080b14]/70">
-                  <Search className="h-4 w-4" />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search documents..."
-                    className="min-w-0 bg-transparent outline-none placeholder:text-slate-400"
-                  />
-                </label>
                 <select
                   value={sortMode}
                   onChange={(e) => setSortMode(e.target.value as SortMode)}

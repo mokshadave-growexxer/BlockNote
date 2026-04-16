@@ -10,13 +10,14 @@ import { useThemeStore } from "../../store/theme-store";
 import { useAIStore } from "../../store/ai-store";
 import toast from "../../lib/toast";
 import type { Block, Document } from "./types";
-import { AIAssistSidebar } from "./ai-assist-sidebar";
+import { MioPanel } from "./MioPanel";
 
 interface Props {
   documentId: string;
+  onDocumentContextChange?: (text: string) => void;
 }
 
-export function DocumentEditor({ documentId }: Props) {
+export function DocumentEditor({ documentId, onDocumentContextChange }: Props) {
   const navigate = useNavigate();
   const { toggleTheme } = useThemeStore();
   const openAIModal = useAIStore((s) => s.openModal);
@@ -31,9 +32,11 @@ export function DocumentEditor({ documentId }: Props) {
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
+  const [documentContext, setDocumentContext] = useState("");
 
   // AI apply ref so block-editor can receive applied text
   const applyAIRef = useRef<((text: string) => void) | null>(null);
+  const insertMioRef = useRef<((markdown: string) => void) | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,6 +163,17 @@ export function DocumentEditor({ documentId }: Props) {
     }
   }, []);
 
+  const handleMioInsert = useCallback((markdown: string) => {
+    if (insertMioRef.current) {
+      insertMioRef.current(markdown);
+    }
+  }, []);
+
+  const handleDocumentContextChange = useCallback((text: string) => {
+    setDocumentContext(text);
+    onDocumentContextChange?.(text);
+  }, [onDocumentContextChange]);
+
   const shareUrl = shareToken ? `${window.location.origin}/share/${shareToken}` : null;
 
   const copyLink = () => {
@@ -182,10 +196,10 @@ export function DocumentEditor({ documentId }: Props) {
   );
 
   return (
-    <div className="flex min-h-[calc(100vh-89px)]">
-      <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="flex min-h-[calc(100vh-89px)] flex-col items-stretch xl:h-[calc(100vh-89px)] xl:min-h-0 xl:flex-row xl:overflow-hidden">
+      <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10 xl:min-h-0 xl:overflow-y-auto">
         <div className="mx-auto max-w-4xl">
-          <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
+          <div className="mb-7 flex flex-wrap items-center justify-between gap-2">
             <button
               onClick={() => navigate("/dashboard")}
               className="flex items-center gap-2 rounded-lg border border-brand-200/70 bg-white/60 px-3 py-2 text-sm font-semibold text-slate-500 transition hover:text-brand-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
@@ -320,13 +334,15 @@ export function DocumentEditor({ documentId }: Props) {
                 initialBlocks={blocks}
                 readOnly={false}
                 onAIApplyRef={applyAIRef}
+                onMioInsertRef={insertMioRef}
                 onOpenAI={(action, text) => openAIModal(action, text)}
+                onDocumentTextChange={handleDocumentContextChange}
               />
             </div>
           </div>
         </div>
       </main>
-      <AIAssistSidebar onApply={handleAIApply} />
+      <MioPanel documentContext={documentContext} onApply={handleAIApply} onInsertMarkdown={handleMioInsert} />
     </div>
   );
 }

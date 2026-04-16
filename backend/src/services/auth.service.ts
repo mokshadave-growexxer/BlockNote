@@ -15,12 +15,7 @@ export async function createUser(email: string, password: string) {
   const user = await prisma.user.create({
     data: {
       email,
-      passwordHash,
-      documents: {
-        create: {
-          title: "Untitled Document"
-        }
-      }
+      passwordHash
     }
   });
 

@@ -6,6 +6,7 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react";
+import { Trash2 } from "lucide-react";
 import type { Block, BlockType, BlockContent } from "./types";
 
 export interface BlockHandle {
@@ -30,6 +31,7 @@ interface BlockProps {
   onFocus: (blockId: string) => void;
   onFormat: (command: string, value?: string) => void;
   onSelectionChange: (blockId: string, rect: DOMRect | null) => void;
+  onDelete: (blockId: string) => void;
   dragHandleProps?: React.HTMLAttributes<HTMLElement> & { ref?: React.Ref<HTMLElement> };
   isDragging?: boolean;
 }
@@ -82,7 +84,7 @@ function splitHTMLAtCaret(el: HTMLElement): { before: string; after: string } {
 }
 
 export const BlockComponent = forwardRef<BlockHandle, BlockProps>(
-  ({ block, index, isFirst, readOnly, slashSelectionInProgress = false, onEnter, onBackspace, onChange, onSlashMenu, onSlashClose, slashMenuBlockId, onFocus, onSelectionChange, dragHandleProps, isDragging }, ref) => {
+  ({ block, index, isFirst, readOnly, slashSelectionInProgress = false, onEnter, onBackspace, onChange, onSlashMenu, onSlashClose, slashMenuBlockId, onFocus, onSelectionChange, onDelete, dragHandleProps, isDragging }, ref) => {
     const editableRef = useRef<HTMLDivElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const [imageUrl, setImageUrl] = useState(block.content.url ?? "");
@@ -376,8 +378,31 @@ export const BlockComponent = forwardRef<BlockHandle, BlockProps>(
       );
     };
 
+    const DeleteButton = ({ label = "Delete block" }: { label?: string }) => {
+      if (readOnly) return null;
+      return (
+        <button
+          type="button"
+          onClick={() => onDelete(block.id)}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-rose-200 bg-white/92 text-rose-500 opacity-0 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 dark:border-rose-500/30 dark:bg-[#101526] dark:text-rose-300 dark:hover:bg-rose-500/10"
+          title={label}
+          aria-label={label}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      );
+    };
+
     if (block.type === "divider") return (
-      <div className={wrap}><DragHandle /><div className="flex-1 py-4"><hr className="border-brand-200 dark:border-white/10"/></div></div>
+      <div className={wrap}>
+        <DragHandle />
+        <div className="flex flex-1 items-center gap-3 py-2">
+          <div className="flex-1 py-2">
+            <hr className="border-brand-200 dark:border-white/10"/>
+          </div>
+          <DeleteButton label="Delete divider block" />
+        </div>
+      </div>
     );
 
     if (block.type === "image") return (
@@ -389,22 +414,34 @@ export const BlockComponent = forwardRef<BlockHandle, BlockProps>(
               <img src={imageUrl} alt={block.content.caption ?? ""} className="max-w-full rounded-lg shadow-atelier"
                 onError={() => { setImageUrl(""); setImageInput(""); }}/>
               {!readOnly && (
-                <button onClick={() => { setImageUrl(""); setImageInput(""); onChange(block.id, { url: "" }); }}
-                  className="absolute right-2 top-2 rounded bg-black/50 px-2 py-1 text-xs text-white opacity-0 transition group-hover/img:opacity-100">
-                  Change URL
-                </button>
+                <div className="absolute right-2 top-2 flex items-center gap-2 opacity-0 transition group-hover/img:opacity-100">
+                  <button onClick={() => { setImageUrl(""); setImageInput(""); onChange(block.id, { url: "" }); }}
+                    className="rounded-md bg-black/55 px-2 py-1 text-xs text-white">
+                    Change URL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(block.id)}
+                    className="flex h-8 w-8 items-center justify-center rounded-md bg-rose-500/90 text-white"
+                    aria-label="Delete image block"
+                    title="Delete image block"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               )}
             </div>
           ) : readOnly ? (
             <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-400">No image</div>
           ) : (
-            <div className="flex gap-2 rounded-lg border border-dashed border-brand-300/70 bg-brand-50/50 p-3 dark:border-white/10 dark:bg-white/[0.035]">
+            <div className="flex items-start gap-2 rounded-lg border border-dashed border-brand-300/70 bg-brand-50/50 p-3 dark:border-white/10 dark:bg-white/[0.035]">
               <input ref={imageInputRef} type="text" value={imageInput} onChange={(e) => setImageInput(e.target.value)}
                 placeholder="Paste image URL and press Enter…"
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                className="flex-1 bg-transparent pt-1 text-sm outline-none placeholder:text-slate-400"
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); embedImageUrl(); } }}/>
               <button onClick={embedImageUrl}
                 className="rounded bg-brand-500 px-3 py-1 text-xs text-white hover:bg-brand-600">Embed</button>
+              <DeleteButton label="Delete image block" />
             </div>
           )}
         </div>

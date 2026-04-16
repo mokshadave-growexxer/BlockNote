@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { AIAction } from "../../store/ai-store";
 
 interface AIToolbarProps {
-  activeBlockId: string | null;
   documentText: string;
   onOpenAI: (action: AIAction, text: string) => void;
 }
@@ -30,16 +29,7 @@ const AI_ACTIONS: { action: AIAction; label: string; icon: React.ReactNode; desc
   },
 ];
 
-function getActiveBlockText(activeBlockId: string | null): string {
-  if (!activeBlockId) return "";
-  const el = document.querySelector(
-    `[data-block-id="${activeBlockId}"] [contenteditable]`
-  ) as HTMLElement | null;
-  if (!el) return "";
-  return el.textContent?.trim() ?? "";
-}
-
-export function AIToolbar({ activeBlockId, documentText, onOpenAI }: AIToolbarProps) {
+export function AIToolbar({ documentText, onOpenAI }: AIToolbarProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -52,15 +42,14 @@ export function AIToolbar({ activeBlockId, documentText, onOpenAI }: AIToolbarPr
   }, []);
 
   const handleAction = (action: AIAction) => {
-    const text = documentText.trim() || getActiveBlockText(activeBlockId);
+    const text = documentText.trim();
     onOpenAI(action, text || "Please add some text to the editor first.");
     setOpen(false);
   };
 
   return (
-    <div ref={ref} className="fixed bottom-24 left-6 z-50 lg:bottom-44">
+    <div ref={ref} className="relative w-full">
       <div className="relative">
-        {/* Dropdown menu */}
         <AnimatePresence>
           {open && (
             <motion.div
@@ -68,11 +57,11 @@ export function AIToolbar({ activeBlockId, documentText, onOpenAI }: AIToolbarPr
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute bottom-12 left-0 w-52 rounded-2xl border border-brand-200 bg-white shadow-xl dark:border-brand-800 dark:bg-[#0f0f1a]"
+              className="absolute left-0 top-[calc(100%+0.5rem)] z-20 w-full min-w-[240px] max-w-[280px] rounded-lg border border-brand-200 bg-white shadow-xl dark:border-brand-800 dark:bg-[#0f0f1a]"
             >
               <div className="border-b border-brand-100 px-3 py-2 dark:border-brand-900">
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  ✨ AI Assist
+                  ✨ Mio AI
                 </p>
               </div>
               <div className="p-1">
@@ -94,20 +83,21 @@ export function AIToolbar({ activeBlockId, documentText, onOpenAI }: AIToolbarPr
           )}
         </AnimatePresence>
 
-        {/* Trigger button */}
         <motion.button
           onClick={() => setOpen((v) => !v)}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.97 }}
-          className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium shadow-md transition ${
+          className={`flex w-full items-center justify-between gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium shadow-md transition ${
             open
               ? "border-brand-400 bg-brand-500 text-white shadow-brand-200 dark:shadow-brand-900/40"
               : "border-brand-300 bg-white text-brand-600 hover:bg-brand-50 dark:border-brand-700 dark:bg-[#0f0f1a] dark:text-brand-400 dark:hover:bg-brand-900/30"
           }`}
         >
-          <Sparkles className="h-4 w-4" />
-          AI Assist
-          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+          <span className="flex items-center gap-1.5">
+            <Sparkles className="h-4 w-4" />
+            Mio AI
+          </span>
+          <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
         </motion.button>
       </div>
     </div>

@@ -5,7 +5,6 @@ import { BlockComponent } from "./block-component";
 import type { BlockHandle } from "./block-component";
 import { SlashMenu } from "./slash-menu";
 import { RichTextToolbar } from "./toolbar";
-import { AIToolbar } from "./ai-toolbar";
 import { bulkSaveBlocks, reorderBlocksApi } from "./editor-api";
 import type { AIAction } from "../../store/ai-store";
 import {
@@ -31,7 +30,9 @@ interface EditorProps {
   initialBlocks: Block[];
   readOnly?: boolean;
   onAIApplyRef?: React.MutableRefObject<((text: string) => void) | null>;
+  onMioInsertRef?: React.MutableRefObject<((markdown: string) => void) | null>;
   onOpenAI?: (action: AIAction, text: string) => void;
+  onDocumentTextChange?: (text: string) => void;
 }
 
 function makeBlock(documentId: string, type: BlockType, orderIndex: number, content: BlockContent = {}): Block {
@@ -76,6 +77,133 @@ function textToHtml(text: string) {
   const tmp = document.createElement("div");
   tmp.textContent = text;
   return tmp.innerHTML.replace(/\n/g, "<br>");
+}
+
+function markdownInlineToHtml(markdown: string) {
+  const escaped = textToHtml(markdown);
+  return escaped
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+}
+
+function stripMarkdownTableDivider(line: string) {
+  return /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+}
+
+function parseMarkdownToBlockData(markdown: string): Array<{ type: BlockType; content: BlockContent }> {
+  const normalized = markdown.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return [];
+
+  const blocks: Array<{ type: BlockType; content: BlockContent }> = [];
+  const paragraphLines: string[] = [];
+  const lines = normalized.split("\n");
+  let inCode = false;
+  let codeLines: string[] = [];
+
+  const flushParagraph = () => {
+    const text = paragraphLines.join("\n").trim();
+    paragraphLines.length = 0;
+    if (!text) return;
+    blocks.push({ type: "paragraph", content: { html: markdownInlineToHtml(text) } });
+  };
+
+  const addParagraph = (text: string) => {
+    if (!text.trim()) return;
+    blocks.push({ type: "paragraph", content: { html: markdownInlineToHtml(text.trim()) } });
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+
+    if (line.trim().startsWith("```")) {
+      if (inCode) {
+        blocks.push({ type: "code", content: { text: codeLines.join("\n") } });
+        codeLines = [];
+        inCode = false;
+      } else {
+        flushParagraph();
+        inCode = true;
+      }
+      continue;
+    }
+
+    if (inCode) {
+      codeLines.push(rawLine);
+      continue;
+    }
+
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushParagraph();
+      continue;
+    }
+
+    const imageMatch = trimmed.match(/^!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)$/);
+    if (imageMatch) {
+      flushParagraph();
+      blocks.push({ type: "image", content: { url: imageMatch[1], caption: "" } });
+      continue;
+    }
+
+    if (/^---+$/.test(trimmed)) {
+      flushParagraph();
+      blocks.push({ type: "divider", content: {} });
+      continue;
+    }
+
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      flushParagraph();
+      blocks.push({
+        type: headingMatch[1].length === 1 ? "heading_1" : "heading_2",
+        content: { html: markdownInlineToHtml(headingMatch[2]) }
+      });
+      continue;
+    }
+
+    const todoMatch = trimmed.match(/^[-*]\s+\[( |x|X)\]\s+(.+)$/);
+    if (todoMatch) {
+      flushParagraph();
+      blocks.push({
+        type: "todo",
+        content: { html: markdownInlineToHtml(todoMatch[2]), checked: todoMatch[1].toLowerCase() === "x" }
+      });
+      continue;
+    }
+
+    if (stripMarkdownTableDivider(trimmed)) continue;
+
+    const tableRowMatch = trimmed.match(/^\|(.+)\|$/);
+    if (tableRowMatch) {
+      flushParagraph();
+      const cells = tableRowMatch[1].split("|").map((cell) => cell.trim()).filter(Boolean);
+      addParagraph(cells.join(" | "));
+      continue;
+    }
+
+    const bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    if (bulletMatch) {
+      flushParagraph();
+      addParagraph(`• ${bulletMatch[1]}`);
+      continue;
+    }
+
+    const numberedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+    if (numberedMatch) {
+      flushParagraph();
+      addParagraph(trimmed);
+      continue;
+    }
+
+    paragraphLines.push(line);
+  }
+
+  if (inCode) blocks.push({ type: "code", content: { text: codeLines.join("\n") } });
+  flushParagraph();
+
+  return blocks.length > 0 ? blocks : [{ type: "paragraph", content: { html: markdownInlineToHtml(normalized) } }];
 }
 
 function findSplitIndex(text: string, target: number) {
@@ -193,7 +321,15 @@ function SortableBlockWrapper({ id, readOnly, children }: SortableBlockWrapperPr
   );
 }
 
-export function BlockEditor({ documentId, initialBlocks, readOnly = false, onAIApplyRef, onOpenAI }: EditorProps) {
+export function BlockEditor({
+  documentId,
+  initialBlocks,
+  readOnly = false,
+  onAIApplyRef,
+  onMioInsertRef,
+  onOpenAI,
+  onDocumentTextChange,
+}: EditorProps) {
   const [blocks, setBlocks] = useState<Block[]>(() =>
     initialBlocks.length > 0 ? initialBlocks : [makeBlock(documentId, "paragraph", 1000)]
   );
@@ -319,6 +455,39 @@ export function BlockEditor({ documentId, initialBlocks, readOnly = false, onAIA
     return sorted.map((b, i) => ({ ...b, orderIndex: (i + 1) * 1000 }));
   };
 
+  const handleMioInsert = useCallback((markdown: string) => {
+    const parsedBlocks = parseMarkdownToBlockData(markdown);
+    if (parsedBlocks.length === 0) return;
+
+    let firstInsertedId = "";
+    setBlocks((prev) => {
+      const sorted = [...prev].sort((a, b) => a.orderIndex - b.orderIndex);
+      const activeIndex = activeBlockId ? sorted.findIndex((block) => block.id === activeBlockId) : -1;
+      const insertIndex = activeIndex >= 0 ? activeIndex + 1 : sorted.length;
+      const before = sorted[insertIndex - 1];
+      const after = sorted[insertIndex];
+      const step = after
+        ? (after.orderIndex - (before?.orderIndex ?? after.orderIndex - 1000)) / (parsedBlocks.length + 1)
+        : 1000;
+      const start = before?.orderIndex ?? ((after?.orderIndex ?? 1000) - step * (parsedBlocks.length + 1));
+      const inserted = parsedBlocks.map((block, index) => {
+        const newBlock = makeBlock(documentId, block.type, start + step * (index + 1), block.content);
+        if (index === 0) firstInsertedId = newBlock.id;
+        return newBlock;
+      });
+      const next = [...sorted];
+      next.splice(insertIndex, 0, ...inserted);
+      return reindex(next);
+    });
+    requestAnimationFrame(() => {
+      if (firstInsertedId) focusBlock(firstInsertedId, true);
+    });
+  }, [activeBlockId, documentId, focusBlock]);
+
+  useEffect(() => {
+    if (onMioInsertRef) onMioInsertRef.current = handleMioInsert;
+  }, [handleMioInsert, onMioInsertRef]);
+
   // ── Insert block at sorted index ───────────────────────────────────
   const insertBlockAt = useCallback((index: number, type: BlockType = "paragraph") => {
     let newBlockId = "";
@@ -443,6 +612,28 @@ export function BlockEditor({ documentId, initialBlocks, readOnly = false, onAIA
     [focusBlock]
   );
 
+  const handleDeleteBlock = useCallback((blockId: string) => {
+    let nextFocusId: string | null = null;
+    setBlocks((prev) => {
+      const sorted = [...prev].sort((a, b) => a.orderIndex - b.orderIndex);
+      const idx = sorted.findIndex((block) => block.id === blockId);
+      if (idx === -1) return prev;
+
+      if (sorted.length === 1) {
+        const replacement = makeBlock(documentId, "paragraph", 1000, { html: "" });
+        nextFocusId = replacement.id;
+        return [replacement];
+      }
+
+      nextFocusId = sorted[idx - 1]?.id ?? sorted[idx + 1]?.id ?? null;
+      return sorted.filter((block) => block.id !== blockId);
+    });
+
+    requestAnimationFrame(() => {
+      if (nextFocusId) focusBlock(nextFocusId, true);
+    });
+  }, [documentId, focusBlock]);
+
   // ── Slash menu ────────────────────────────────────────────────────
   const handleSlashMenu = useCallback((blockId: string, filter: string, rect: DOMRect) => {
     setSlashState({ blockId, filter, rect });
@@ -563,6 +754,10 @@ export function BlockEditor({ documentId, initialBlocks, readOnly = false, onAIA
       .join("\n\n");
   }, [sorted]);
 
+  useEffect(() => {
+    onDocumentTextChange?.(documentText);
+  }, [documentText, onDocumentTextChange]);
+
   // ── Word count ────────────────────────────────────────────────────
   const wordCount = useMemo(() => {
     const TEXT_BLOCK_TYPES: BlockType[] = ["paragraph", "heading_1", "heading_2", "todo", "code"];
@@ -634,6 +829,7 @@ export function BlockEditor({ documentId, initialBlocks, readOnly = false, onAIA
                         onFocus={setActiveBlockId}
                         onFormat={handleFormat}
                         onSelectionChange={handleSelectionChange}
+                        onDelete={handleDeleteBlock}
                         dragHandleProps={dragHandleProps}
                       />
                     )}
@@ -680,15 +876,6 @@ export function BlockEditor({ documentId, initialBlocks, readOnly = false, onAIA
 
       {/* Rich text toolbar */}
       <RichTextToolbar visible={!!toolbarState} position={toolbarPos} onFormat={handleFormat} />
-
-      {/* AI Assist toolbar */}
-      {!readOnly && onOpenAI && (
-        <AIToolbar
-          activeBlockId={activeBlockId}
-          documentText={documentText}
-          onOpenAI={onOpenAI}
-        />
-      )}
 
       {/* Word count badge */}
       <div className="fixed bottom-4 right-6 z-50 rounded-lg border border-brand-200 bg-white/86 px-3 py-1.5 text-xs text-gray-500 shadow-md backdrop-blur select-none pointer-events-none dark:border-white/10 dark:bg-[#080b14]/86 dark:text-gray-400 xl:right-[390px]">
