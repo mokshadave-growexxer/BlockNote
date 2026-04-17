@@ -267,7 +267,7 @@ docker-compose exec backend npx prisma migrate dev
 
 ### AI Features
 
-![Mio Tools Panel](./docs/images/mio-tools.png)
+![Mio Tools Panel](./docs/images/Screenshot%20from%202026-04-17%2019-23-02.png
 
 *Mio Tools panel showing Grammar Check, Paraphrase, and Summarize options*
 
