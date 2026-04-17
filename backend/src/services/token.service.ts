@@ -4,7 +4,9 @@ import { env, isProduction } from "../config/env.js";
 import { signAccessToken, signRefreshToken } from "../lib/jwt.js";
 import { prisma } from "../lib/prisma.js";
 
+const ACCESS_COOKIE_NAME = "accessToken";
 const REFRESH_COOKIE_NAME = "refreshToken";
+const CSRF_COOKIE_NAME = "csrfToken";
 const REFRESH_COOKIE_PATH = "/api/auth";
 
 type AuthUser = {
@@ -15,6 +17,11 @@ type AuthUser = {
 export type AuthTokens = {
   accessToken: string;
   refreshToken: string;
+};
+
+type CSRFTokens = {
+  token: string;
+  hash: string;
 };
 
 function parseExpiryToMs(value: string) {
@@ -33,6 +40,44 @@ function parseExpiryToMs(value: string) {
   };
 
   return amount * multipliers[unit];
+}
+
+/**
+ * Generate CSRF token pair: token (sent to client) + hash (stored in cookie)
+ * Double-submit pattern: client must send token in X-CSRF-Token header
+ * Protects against CSRF when SameSite=None is required for cross-origin requests
+ */
+export function generateCSRFTokens(): CSRFTokens {
+  const token = crypto.randomBytes(32).toString("hex");
+  const hash = crypto.createHash("sha256").update(token).digest("hex");
+  return { token, hash };
+}
+
+/**
+ * Verify CSRF token: validate submitted token against hash in cookie
+ */
+export function verifyCSRFToken(submittedToken: string, tokenHash: string): boolean {
+  const submittedHash = crypto.createHash("sha256").update(submittedToken).digest("hex");
+  // Use constant-time comparison to prevent timing attacks
+  return crypto.timingSafeEqual(
+    Buffer.from(submittedHash),
+    Buffer.from(tokenHash)
+  );
+}
+
+export function setCSRFCookie(response: Response, tokenHash: string) {
+  // Regular (not HttpOnly) cookie so frontend can read it for the header
+  response.cookie(CSRF_COOKIE_NAME, tokenHash, {
+    httpOnly: false,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  });
+}
+
+export function getCSRFTokenHashFromCookies(cookies: Record<string, unknown>) {
+  const hash = cookies[CSRF_COOKIE_NAME];
+  return typeof hash === "string" ? hash : null;
 }
 
 export function getRefreshTokenHash(token: string) {
@@ -64,6 +109,30 @@ export function clearRefreshCookie(response: Response) {
 
 export function getRefreshTokenFromCookies(cookies: Record<string, unknown>) {
   const token = cookies[REFRESH_COOKIE_NAME];
+  return typeof token === "string" ? token : null;
+}
+
+export function setAccessCookie(response: Response, token: string) {
+  response.cookie(ACCESS_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    maxAge: parseExpiryToMs(env.ACCESS_TOKEN_EXPIRY),
+    path: "/api"
+  });
+}
+
+export function clearAccessCookie(response: Response) {
+  response.clearCookie(ACCESS_COOKIE_NAME, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    path: "/api"
+  });
+}
+
+export function getAccessTokenFromCookies(cookies: Record<string, unknown>) {
+  const token = cookies[ACCESS_COOKIE_NAME];
   return typeof token === "string" ? token : null;
 }
 

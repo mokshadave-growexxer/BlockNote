@@ -353,28 +353,80 @@ export function BlockEditor({
 
     setBlocks((prev) => {
       const sorted = [...prev].sort((a, b) => a.orderIndex - b.orderIndex);
-      const existingTextBlocks = sorted.filter((block) => AI_EDITABLE_TYPES.includes(block.type));
-      if (existingTextBlocks.length === 0) return prev;
-
-      let chunkIndex = 0;
-      const sourceTexts = existingTextBlocks.map((block) => htmlToText(block.content.html ?? ""));
-      const chunks = splitTextForBlocks(cleaned, sourceTexts);
-      const updated = sorted.map((block) => {
-        if (!AI_EDITABLE_TYPES.includes(block.type)) return block;
-        const chunk = chunks[chunkIndex++] ?? "";
-        return {
-          ...block,
-          content: {
-            ...block.content,
-            html: textToHtml(chunk),
-            text: chunk,
-          },
-        };
+      
+      // Find all text blocks
+      const textBlockIndices: number[] = [];
+      sorted.forEach((block, idx) => {
+        if (AI_EDITABLE_TYPES.includes(block.type)) {
+          textBlockIndices.push(idx);
+        }
       });
+      
+      if (textBlockIndices.length === 0) return prev;
 
-      return reindex(updated);
+      // Check if result has markdown structure (headings, lists, etc.)
+      const hasMarkdown = /^#+\s|\n#+\s|^[-*]\s|\n[-*]\s|^\d+\.\s|\n\d+\.\s|```|^>|\n>/.test(cleaned);
+      
+      if (hasMarkdown) {
+        // Parse as markdown and smart-distribute
+        const parsedBlocks = parseMarkdownToBlockData(cleaned);
+        if (parsedBlocks.length === 0) return prev;
+
+        // Build the new block list by replacing text blocks with parsed ones
+        const newSorted: Block[] = [];
+        let parsedIndex = 0;
+
+        sorted.forEach((block, idx) => {
+          if (textBlockIndices.includes(idx)) {
+            // This is a text block - replace with parsed content
+            if (parsedIndex < parsedBlocks.length) {
+              const parsedBlock = parsedBlocks[parsedIndex++];
+              newSorted.push({
+                ...block,
+                type: parsedBlock.type as BlockType,
+                content: parsedBlock.content,
+              });
+            }
+          } else {
+            // Non-text block - keep as is
+            newSorted.push(block);
+          }
+        });
+
+        // If there are more parsed blocks than text blocks, append them
+        while (parsedIndex < parsedBlocks.length) {
+          const parsedBlock = parsedBlocks[parsedIndex++];
+          const lastBlock = newSorted[newSorted.length - 1];
+          const newOrderIndex = midpoint(lastBlock?.orderIndex, undefined);
+          newSorted.push(makeBlock(documentId, parsedBlock.type as BlockType, newOrderIndex, parsedBlock.content));
+        }
+
+        return reindex(newSorted);
+      } else {
+        // Plain text - preserve block types and just update content
+        let chunkIndex = 0;
+        const sourceTexts = sorted
+          .filter((block, idx) => textBlockIndices.includes(idx))
+          .map((block) => htmlToText(block.content.html ?? ""));
+        const chunks = splitTextForBlocks(cleaned, sourceTexts);
+        
+        const updated = sorted.map((block, idx) => {
+          if (!textBlockIndices.includes(idx)) return block;
+          const chunk = chunks[chunkIndex++] ?? "";
+          return {
+            ...block,
+            content: {
+              ...block.content,
+              html: textToHtml(chunk),
+              text: chunk,
+            },
+          };
+        });
+
+        return reindex(updated);
+      }
     });
-  }, []);
+  }, [documentId]);
 
   // Expose AI apply handler via ref
   useEffect(() => {
@@ -576,9 +628,10 @@ export function BlockEditor({
         if (currentText.length > 0 && current.type !== "paragraph") {
           return prev.map((b) => b.id === blockId ? { ...b, type: "paragraph" } : b);
         }
+        // If previous block is divider/image, just focus it (don't delete current)
         if (NON_TEXT_TYPES.includes(prevBlock.type)) {
           requestAnimationFrame(() => focusBlock(prevBlock.id, true));
-          return sorted.filter((b) => b.id !== blockId);
+          return prev;
         }
         const prevHTML = blockRefs.current.get(prevBlock.id)?.getHTML() ?? prevBlock.content.html ?? "";
         const curHTML = blockRefs.current.get(blockId)?.getHTML() ?? current.content.html ?? "";
@@ -802,7 +855,11 @@ export function BlockEditor({
             {sorted.map((block, index) => {
               const isNonEditable = NON_TEXT_TYPES.includes(block.type);
               return (
-                <div key={block.id}>
+                <div 
+                  key={block.id} 
+                  onClick={() => setActiveBlockId(block.id)}
+                  className={!readOnly ? "cursor-pointer" : ""}
+                >
                   {/* Insert ABOVE for image/divider */}
                   {isNonEditable && !readOnly && (
                     <BlockSpacer onInsert={() => insertBlockAt(index)} />

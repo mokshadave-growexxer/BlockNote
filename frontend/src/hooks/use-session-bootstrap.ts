@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { AuthResponse } from "../api/auth";
 import { refreshSession } from "../api/auth";
+import { setCSRFToken } from "../api/http";
 import { useAuthStore } from "../store/auth-store";
 
 let bootstrapRefreshPromise: Promise<AuthResponse | null> | null = null;
@@ -24,9 +25,9 @@ export function useSessionBootstrap() {
 
   useEffect(() => {
     let active = true;
-    const currentSession = useAuthStore.getState();
+    const currentUser = useAuthStore.getState().user;
 
-    if (currentSession.accessToken && currentSession.user) {
+    if (currentUser) {
       markHydrated();
       return () => {
         active = false;
@@ -39,13 +40,14 @@ export function useSessionBootstrap() {
           return;
         }
         if (!data) {
-          const latestSession = useAuthStore.getState();
-          if (!latestSession.accessToken || !latestSession.user) {
+          const latestUser = useAuthStore.getState().user;
+          if (!latestUser) {
             clearSession();
           }
           return;
         }
-        setSession(data.accessToken, data.user);
+        setCSRFToken(data.csrfToken);
+        setSession(data.user);
       })
       .finally(() => {
         if (active) {

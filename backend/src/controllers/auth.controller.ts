@@ -5,12 +5,17 @@ import { verifyRefreshToken } from "../lib/jwt.js";
 import { prisma } from "../lib/prisma.js";
 import { createUser, validateUser } from "../services/auth.service.js";
 import {
+  clearAccessCookie,
   clearRefreshCookie,
   createTokenPair,
+  generateCSRFTokens,
+  getAccessTokenFromCookies,
   getRefreshTokenFromCookies,
   rotateRefreshToken,
   revokeRefreshToken,
+  setAccessCookie,
   setRefreshCookie,
+  setCSRFCookie,
   storeRefreshToken
 } from "../services/token.service.js";
 
@@ -22,9 +27,14 @@ const authSchema = z.object({
     .regex(/\d/, "Password must contain at least one number.")
 });
 
-function buildAuthResponse(user: { id: string; email: string }, accessToken: string) {
+/**
+ * Build auth response without exposing accessToken
+ * CSRF token is included for client-side CSRF protection
+ * Tokens are set via HttpOnly cookies - not exposed in JSON
+ */
+function buildAuthResponse(user: { id: string; email: string }, csrfToken: string) {
   return {
-    accessToken,
+    csrfToken,
     user: {
       id: user.id,
       email: user.email
@@ -36,10 +46,13 @@ export async function register(request: Request, response: Response) {
   const payload = authSchema.parse(request.body);
   const user = await createUser(payload.email, payload.password);
   const tokens = createTokenPair(user);
+  const { token: csrfToken, hash: csrfHash } = generateCSRFTokens();
 
   await storeRefreshToken(user.id, tokens.refreshToken);
+  setAccessCookie(response, tokens.accessToken);
   setRefreshCookie(response, tokens.refreshToken);
-  response.status(StatusCodes.CREATED).json(buildAuthResponse(user, tokens.accessToken));
+  setCSRFCookie(response, csrfHash);
+  response.status(StatusCodes.CREATED).json(buildAuthResponse(user, csrfToken));
 }
 
 export async function login(request: Request, response: Response) {
@@ -52,9 +65,13 @@ export async function login(request: Request, response: Response) {
   }
 
   const tokens = createTokenPair(user);
+  const { token: csrfToken, hash: csrfHash } = generateCSRFTokens();
+  
   await storeRefreshToken(user.id, tokens.refreshToken);
+  setAccessCookie(response, tokens.accessToken);
   setRefreshCookie(response, tokens.refreshToken);
-  response.status(StatusCodes.OK).json(buildAuthResponse(user, tokens.accessToken));
+  setCSRFCookie(response, csrfHash);
+  response.status(StatusCodes.OK).json(buildAuthResponse(user, csrfToken));
 }
 
 export async function refresh(request: Request, response: Response) {
@@ -85,8 +102,12 @@ export async function refresh(request: Request, response: Response) {
       return;
     }
 
+    const { token: csrfToken, hash: csrfHash } = generateCSRFTokens();
+    
+    setAccessCookie(response, tokens.accessToken);
     setRefreshCookie(response, tokens.refreshToken);
-    response.status(StatusCodes.OK).json(buildAuthResponse(user, tokens.accessToken));
+    setCSRFCookie(response, csrfHash);
+    response.status(StatusCodes.OK).json(buildAuthResponse(user, csrfToken));
   } catch {
     clearRefreshCookie(response);
     response.status(StatusCodes.UNAUTHORIZED).json({ message: "Invalid or expired refresh token." });
@@ -99,6 +120,7 @@ export async function logout(request: Request, response: Response) {
     await revokeRefreshToken(refreshToken);
   }
 
+  clearAccessCookie(response);
   clearRefreshCookie(response);
   response.status(StatusCodes.OK).json({ message: "Logged out." });
 }

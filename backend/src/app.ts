@@ -5,6 +5,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { env } from "./config/env.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js";
+import { verifyCsrf } from "./middleware/csrf.middleware.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { documentRouter } from "./routes/document.routes.js";
 import { blockRouter } from "./routes/block.routes.js";
@@ -22,6 +23,9 @@ export function createApp() {
   app.use(cookieParser());
 
   app.get("/api/health", (_req, res) => res.status(200).json({ status: "ok" }));
+
+  // CSRF protection for state-changing requests
+  app.use("/api", verifyCsrf);
 
   app.use("/api/auth", authRouter);
   app.use("/api/documents", documentRouter);

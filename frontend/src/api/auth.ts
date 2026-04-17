@@ -6,7 +6,7 @@ export type SessionUser = {
 };
 
 export type AuthResponse = {
-  accessToken: string;
+  csrfToken: string;
   user: SessionUser;
 };
 

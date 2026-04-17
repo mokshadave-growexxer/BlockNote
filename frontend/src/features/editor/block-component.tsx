@@ -458,6 +458,7 @@ export const BlockComponent = forwardRef<BlockHandle, BlockProps>(
           data-placeholder={readOnly ? "" : "To-do item…"}
           className={`editor-block-content flex-1 min-w-0 outline-none break-words ${block.content.checked ? "text-slate-400 line-through dark:text-slate-500" : "text-slate-700 dark:text-slate-200"} empty:before:text-slate-300 empty:before:content-[attr(data-placeholder)] dark:empty:before:text-slate-600`}
           style={{ fontSize: "16px", lineHeight: "1.85" }}/>
+        <DeleteButton label="Delete to-do block" />
       </div>
     );
 
@@ -470,6 +471,7 @@ export const BlockComponent = forwardRef<BlockHandle, BlockProps>(
             className="font-mono text-sm text-slate-100 outline-none whitespace-pre-wrap break-words empty:before:text-slate-500 empty:before:content-[attr(data-placeholder)]"
             style={{ minHeight: "1.5em" }}/>
         </pre>
+        <DeleteButton label="Delete code block" />
       </div>
     );
 
@@ -496,6 +498,7 @@ export const BlockComponent = forwardRef<BlockHandle, BlockProps>(
           style={{ textAlign: block.content.align ?? "left", ...typeStyle }}
           className={`editor-block-content flex-1 min-w-0 outline-none break-words ${hClass}`}
         />
+        <DeleteButton label={`Delete ${block.type.replace(/_/g, ' ')} block`} />
       </div>
     );
   }

@@ -31,11 +31,11 @@ The output MUST be compatible with Markdown-to-BlockNote conversion.`;
 
 const PROMPTS: Record<string, (text: string) => string> = {
   grammar: (text) =>
-    `Correct the grammar of the following text without changing its meaning. Return only the corrected text, no explanations:\n\n${text}`,
+    `Correct the grammar of the following text without changing its meaning or structure. Preserve any markdown formatting (headings with #, bold **, italic *, lists with -, etc.). Return only the corrected text in the same markdown format, with no explanations:\n\n${text}`,
   paraphrase: (text) =>
-    `Paraphrase the following text while preserving its meaning. Return only the paraphrased text, no explanations:\n\n${text}`,
+    `Paraphrase the following text while preserving its meaning and structure. Preserve any markdown formatting (headings with #, bold **, italic *, lists with -, etc.). Return only the paraphrased text in the same markdown format, with no explanations:\n\n${text}`,
   summary: (text) =>
-    `Summarize the following text concisely in 2-4 sentences. Return only the summary:\n\n${text}`
+    `Summarize the following text concisely in 2-4 sentences. Format as markdown if appropriate. Return only the summary:\n\n${text}`
 };
 
 const GEMINI_MODELS = [

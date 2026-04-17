@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.middleware.js";
+import { enforceDocumentOwnership } from "../middleware/document-ownership.middleware.js";
 import {
   getBlocks,
   createBlock,
@@ -12,6 +13,7 @@ import {
 export const blockRouter = Router({ mergeParams: true });
 
 blockRouter.use(requireAuth);
+blockRouter.use(enforceDocumentOwnership);
 
 blockRouter.get("/", getBlocks);
 blockRouter.post("/", createBlock);

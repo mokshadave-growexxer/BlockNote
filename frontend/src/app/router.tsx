@@ -1,17 +1,17 @@
 import { createBrowserRouter, Navigate, Outlet, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { login, logout, register } from "../api/auth";
+import { setCSRFToken } from "../api/http";
 import { AppShell } from "../components/app-shell";
 import { useSessionBootstrap } from "../hooks/use-session-bootstrap";
 import { AuthForm } from "../features/auth/auth-form";
 import { DocumentDashboard } from "../features/documents/document-dashboard";
 import { useAuthStore } from "../store/auth-store";
-import { useAIStore } from "../store/ai-store";
 import { DocumentEditor } from "../features/editor/document-editor";
 import { SharePage } from "../features/share/share-page";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { FilePenLine } from "lucide-react";
-import { AIToolbar } from "../features/editor/ai-toolbar";
+import { MioSidebar } from "../features/editor/MioSidebar";
 
 function AuthLayout() {
   const navigate = useNavigate();
@@ -85,8 +85,9 @@ function AuthLayout() {
                 onToggleMode={() => setMode((current) => current === "login" ? "register" : "login")}
                 onSubmit={async (payload) => {
                   const data = mode === "login" ? await login(payload) : await register(payload);
-                  // Registration and login share the same session shape, so we can sign in immediately.
-                  setSession(data.accessToken, data.user);
+                  // Store CSRF token for subsequent requests; tokens are in secure HttpOnly cookies
+                  setCSRFToken(data.csrfToken);
+                  setSession(data.user);
                   navigate("/dashboard");
                 }}
               />
@@ -129,9 +130,14 @@ function EditorPage() {
   const user = useAuthStore((s) => s.user);
   const hydrated = useAuthStore((s) => s.hydrated);
   const clearSession = useAuthStore((s) => s.clearSession);
-  const openAIModal = useAIStore((s) => s.openModal);
   const navigate = useNavigate();
   const [documentContext, setDocumentContext] = useState("");
+  const applyAIRef = useRef<((text: string) => void) | null>(null);
+
+  const applyToDocument = (text: string) => {
+    applyAIRef.current?.(text);
+  };
+
   useSessionBootstrap();
   if (!hydrated) return <ScreenMessage message="Restoring your session..." />;
   if (!user) return <Navigate to="/" replace />;
@@ -140,14 +146,18 @@ function EditorPage() {
       title=""
       subtitle=""
       sidebarContent={
-        <AIToolbar
+        <MioSidebar
           documentText={documentContext}
-          onOpenAI={(action, text) => openAIModal(action, text)}
+          onApply={applyToDocument}
         />
       }
       onLogout={async () => { await logout(); clearSession(); navigate("/"); }}
     >
-      <DocumentEditor documentId={id!} onDocumentContextChange={setDocumentContext} />
+      <DocumentEditor 
+        documentId={id!} 
+        onDocumentContextChange={setDocumentContext}
+        onApplyAIRef={applyAIRef}
+      />
     </AppShell>
   );
 }

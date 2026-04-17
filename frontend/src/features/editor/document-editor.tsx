@@ -15,9 +15,10 @@ import { MioPanel } from "./MioPanel";
 interface Props {
   documentId: string;
   onDocumentContextChange?: (text: string) => void;
+  onApplyAIRef?: React.MutableRefObject<((text: string) => void) | null>;
 }
 
-export function DocumentEditor({ documentId, onDocumentContextChange }: Props) {
+export function DocumentEditor({ documentId, onDocumentContextChange, onApplyAIRef }: Props) {
   const navigate = useNavigate();
   const { toggleTheme } = useThemeStore();
   const openAIModal = useAIStore((s) => s.openModal);
@@ -34,8 +35,7 @@ export function DocumentEditor({ documentId, onDocumentContextChange }: Props) {
   const [isPublic, setIsPublic] = useState(false);
   const [documentContext, setDocumentContext] = useState("");
 
-  // AI apply ref so block-editor can receive applied text
-  const applyAIRef = useRef<((text: string) => void) | null>(null);
+  // AI apply ref so block-editor can receive applied text - pass directly to parent
   const insertMioRef = useRef<((markdown: string) => void) | null>(null);
 
   useEffect(() => {
@@ -156,13 +156,6 @@ export function DocumentEditor({ documentId, onDocumentContextChange }: Props) {
     }
   };
 
-  // AI apply handler — replaces active block text
-  const handleAIApply = useCallback((text: string) => {
-    if (applyAIRef.current) {
-      applyAIRef.current(text);
-    }
-  }, []);
-
   const handleMioInsert = useCallback((markdown: string) => {
     if (insertMioRef.current) {
       insertMioRef.current(markdown);
@@ -197,6 +190,7 @@ export function DocumentEditor({ documentId, onDocumentContextChange }: Props) {
 
   return (
     <div className="flex min-h-[calc(100vh-89px)] flex-col items-stretch xl:h-[calc(100vh-89px)] xl:min-h-0 xl:flex-row xl:overflow-hidden">
+      {/* Main Content */}
       <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10 xl:min-h-0 xl:overflow-y-auto">
         <div className="mx-auto max-w-4xl">
           <div className="mb-7 flex flex-wrap items-center justify-between gap-2">
@@ -333,7 +327,7 @@ export function DocumentEditor({ documentId, onDocumentContextChange }: Props) {
                 documentId={documentId}
                 initialBlocks={blocks}
                 readOnly={false}
-                onAIApplyRef={applyAIRef}
+                onAIApplyRef={onApplyAIRef}
                 onMioInsertRef={insertMioRef}
                 onOpenAI={(action, text) => openAIModal(action, text)}
                 onDocumentTextChange={handleDocumentContextChange}
@@ -342,7 +336,9 @@ export function DocumentEditor({ documentId, onDocumentContextChange }: Props) {
           </div>
         </div>
       </main>
-      <MioPanel documentContext={documentContext} onApply={handleAIApply} onInsertMarkdown={handleMioInsert} />
+
+      {/* Right Panel: Content Generation */}
+      <MioPanel documentContext={documentContext} onInsertMarkdown={handleMioInsert} />
     </div>
   );
 }
