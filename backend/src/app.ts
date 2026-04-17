@@ -3,6 +3,8 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
+import path from "path";
+import { fileURLToPath } from "url";
 import { env } from "./config/env.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js";
 import { verifyCsrf } from "./middleware/csrf.middleware.js";
@@ -12,6 +14,9 @@ import { blockRouter } from "./routes/block.routes.js";
 import { aiRouter } from "./routes/ai.routes.js";
 import { requireAuth } from "./middleware/auth.middleware.js";
 import { enableSharing, disableSharing, getSharedDocument } from "./controllers/share.controller.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export function createApp() {
   const app = express();
@@ -36,6 +41,15 @@ export function createApp() {
   app.post("/api/documents/:id/share", requireAuth, enableSharing);
   app.delete("/api/documents/:id/share", requireAuth, disableSharing);
   app.get("/api/share/:token", getSharedDocument);
+
+  // Serve frontend build (SPA routing)
+  const frontendDistPath = path.resolve(__dirname, "../../frontend/dist");
+  app.use(express.static(frontendDistPath));
+  
+  // Catch-all: serve index.html for any non-API route (React Router will handle)
+  app.get(/^(?!\/api\/).*/, (_req, res) => {
+    res.sendFile(path.join(frontendDistPath, "index.html"));
+  });
 
   app.use(notFoundHandler);
   app.use(errorHandler);
