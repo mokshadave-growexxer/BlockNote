@@ -60,7 +60,7 @@ export async function login(request: Request, response: Response) {
   const user = await validateUser(payload.email, payload.password);
 
   if (!user) {
-    response.status(StatusCodes.UNAUTHORIZED).json({ message: "Invalid email or password." });
+    response.status(StatusCodes.UNAUTHORIZED).json({ message: "Incorrect email or password." });
     return;
   }
 
