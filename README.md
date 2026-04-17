@@ -242,6 +242,68 @@ docker-compose exec backend npx prisma migrate dev
 ```
 
 ---
+
+## 📚 How to Use (Workflows)
+
+### Editing Blocks
+
+| Action | How | Result |
+|--------|-----|--------|
+| **Add new text block** | Press `Enter` at end of any text block | Creates new paragraph below |
+| **Delete current block** | Select block, click trash icon (top-right) | Block deleted, content lost (or press backspace for empty block) |
+| **Insert block after image/code/divider** | Hover above or below the block, click `+` button | New block inserted at that position |
+| **Split block in middle** | Click at any position, press `Enter` | Splits into two blocks at cursor |
+| **Merge blocks** | Press `Backspace` at start of current block (not empty) | Combines with previous block's content |
+| **Clear a block** | Select `Backspace` on empty block | Deletes the block entirely |
+
+### Formatting Text
+
+| Action | How | Result |
+|--------|-----|--------|
+| **Bold text** | Select text, use `Cmd/Ctrl + B` or click toolbar | **Your text** becomes bold |
+| **Italic text** | Select text, use `Cmd/Ctrl + I` or click toolbar | *Your text* becomes italic |
+| **Inline code** | Select text, click code icon in toolbar | `Your text` becomes code |
+| **Undo formatting** | Select formatted text, toggle button again | Removes formatting |
+
+### AI Features
+
+![Mio Tools Panel](./docs/images/mio-tools.png)
+
+*Mio Tools panel showing Grammar Check, Paraphrase, and Summarize options*
+
+| Feature | How | What It Does |
+|---------|-----|-------------|
+| **Grammar Check** | Select text (for entire doc, dont select anything)→ Click Mio AI (left panel) → "Grammar Check" | Fixes grammar errors, preserves meaning |
+| **Paraphrase** | Select text → Click Mio AI (left panel) → "Paraphrase" | Rewrites text in different words |
+| **Summarize** | Select text → Click Mio AI (left panel) → "Summarize" | Condenses selected text to key points |
+| **Apply AI result** | After AI generates result → Click "Apply" button | Replaces selected text with AI result |
+
+### Document Features
+
+| Feature | How | Result |
+|---------|-----|--------|
+| **Pin document** | In editor header, click pin icon or press `Cmd/Ctrl + Shift + P` | Document appears at top of dashboard |
+| **Add emoji icon** | Click emoji icon in editor header | Picker opens, select your icon |
+| **Add cover image** | Click cover image area or use header menu | Sets background image for document |
+| **Share document** | Click "Share" button in editor → Copy link | Anyone with link can read document (read-only) |
+| **Dark mode** | Press `Cmd/Ctrl + Shift + D` or settings | Toggles dark/light theme |
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd/Ctrl + S` | Confirm save |
+| `Cmd/Ctrl + B` | Bold |
+| `Cmd/Ctrl + I` | Italic |
+| `/` | Open slash menu (formatting options) |
+| `Cmd/Ctrl + Shift + P` | Pin/unpin document |
+| `Cmd/Ctrl + Shift + D` | Toggle dark/light mode |
+| `Enter` | New block or confirm action |
+| `Backspace` | Delete or merge blocks |
+| `Escape` | Close menus/dialogs |
+
+---
+
 ## 🔧 Environment Variables 
 
 ### Backend `.env` Variables

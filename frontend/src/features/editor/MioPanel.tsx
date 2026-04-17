@@ -76,7 +76,7 @@ export function MioPanel({ documentContext, onInsertMarkdown }: MioPanelProps) {
                     runMio();
                   }
                 }}
-                placeholder="Create a to-do list for my exam prep..."
+                placeholder="Write a blog on nature in 50words..."
                 className="mt-3 min-h-32 w-full resize-none rounded-lg border border-brand-200/70 bg-white/80 px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-200/60 dark:border-white/10 dark:bg-[#080b14] dark:text-slate-100 dark:focus:ring-brand-500/20"
               />
             </label>
