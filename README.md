@@ -102,7 +102,146 @@ npm run dev
 That's it! You're ready to use BlockNote locally.
 
 ---
+## 🐳 Docker Setup (Alternative)
 
+If you prefer, you can run everything with Docker Compose (no need to install Node.js or PostgreSQL locally).
+
+### Prerequisites
+- **Docker** and **Docker Compose** installed
+
+### Step 1: Create Docker Compose File
+
+Create a `docker-compose.yml` in the project root:
+
+```yaml
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: blocknote-db
+    environment:
+      POSTGRES_USER: blocknote
+      POSTGRES_PASSWORD: blocknote_password
+      POSTGRES_DB: blocknote
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blocknote"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: blocknote-api
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: "postgresql://blocknote:blocknote_password@postgres:5432/blocknote"
+      NODE_ENV: "development"
+      PORT: "5000"
+      JWT_ACCESS_SECRET: "dev-access-secret-please-change-in-production"
+      JWT_REFRESH_SECRET: "dev-refresh-secret-please-change-in-production"
+      FRONTEND_URL: "http://localhost:5173"
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npm run dev"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: blocknote-web
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: "http://localhost:5000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+```
+
+### Step 2: Create Dockerfiles
+
+**backend/Dockerfile:**
+```dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+
+EXPOSE 5000
+CMD ["npm", "run", "dev"]
+```
+
+**frontend/Dockerfile:**
+```dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+EXPOSE 5173
+CMD ["npm", "run", "dev"]
+```
+
+### Step 3: Set Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+GEMINI_API_KEY="your_api_key_here"
+```
+
+### Step 4: Run Everything
+
+```bash
+# Start all services (database, backend, frontend)
+docker-compose up
+
+# Wait for services to start (2-3 minutes first time)
+# Visit http://localhost:5173
+```
+
+### Useful Docker Commands
+
+```bash
+# Stop all services
+docker-compose down
+
+# View logs
+docker-compose logs -f
+
+# Restart a specific service
+docker-compose restart backend
+
+# Reset database (careful!)
+docker-compose down -v  # Removes all data
+docker-compose up
+
+# Run migrations manually
+docker-compose exec backend npx prisma migrate dev
+```
+
+---
 ## 🔧 Environment Variables 
 
 ### Backend `.env` Variables
