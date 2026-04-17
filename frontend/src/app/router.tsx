@@ -7,10 +7,11 @@ import { useSessionBootstrap } from "../hooks/use-session-bootstrap";
 import { AuthForm } from "../features/auth/auth-form";
 import { DocumentDashboard } from "../features/documents/document-dashboard";
 import { useAuthStore } from "../store/auth-store";
+import { useThemeStore } from "../store/theme-store";
 import { DocumentEditor } from "../features/editor/document-editor";
 import { SharePage } from "../features/share/share-page";
 import { useState, useRef } from "react";
-import { FilePenLine } from "lucide-react";
+import { FilePenLine, Moon, Sun } from "lucide-react";
 import { MioSidebar } from "../features/editor/MioSidebar";
 
 function AuthLayout() {
@@ -18,6 +19,7 @@ function AuthLayout() {
   const setSession = useAuthStore((state) => state.setSession);
   const user = useAuthStore((state) => state.user);
   const hydrated = useAuthStore((state) => state.hydrated);
+  const { theme, toggleTheme } = useThemeStore();
   const [mode, setMode] = useState<"login" | "register">("login");
   useSessionBootstrap();
   if (!hydrated) return <ScreenMessage message="Restoring your session..." />;
@@ -56,6 +58,13 @@ function AuthLayout() {
 
       <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10 sm:px-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(139,92,246,0.24),transparent_28%),linear-gradient(135deg,#ffffff_0%,#f1ebff_50%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_84%_12%,rgba(139,92,246,0.22),transparent_28%),linear-gradient(135deg,#111827_0%,#0b1020_50%,#080b14_100%)]" />
+        <button
+          onClick={toggleTheme}
+          className="absolute top-6 right-6 p-2 rounded-lg border border-slate-200 dark:border-white/10 hover:bg-white/50 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition"
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </button>
         <div className="relative w-full max-w-lg">
           <div className="mb-12 flex items-center justify-between">
             <div className="flex items-center gap-4">

@@ -404,6 +404,7 @@ export function BlockEditor({
         return reindex(newSorted);
       } else {
         // Plain text - preserve block types and just update content
+        // BUT: Apply markdown inline conversion for formatting like **bold**, *italic*, `code`
         let chunkIndex = 0;
         const sourceTexts = sorted
           .filter((block, idx) => textBlockIndices.includes(idx))
@@ -417,7 +418,7 @@ export function BlockEditor({
             ...block,
             content: {
               ...block.content,
-              html: textToHtml(chunk),
+              html: markdownInlineToHtml(chunk),
               text: chunk,
             },
           };
@@ -570,7 +571,9 @@ export function BlockEditor({
         const nextBlock = sorted[idx + 1];
         const newIdx = midpoint(current.orderIndex, nextBlock?.orderIndex);
         const updated = { ...current, content: { ...current.content, html: beforeHTML } };
-        const newBlock = makeBlock(documentId, "paragraph", newIdx, { html: afterHTML });
+        // Create new block with same type if heading, otherwise paragraph
+        const newBlockType = (current.type === "heading_1" || current.type === "heading_2") ? current.type : "paragraph";
+        const newBlock = makeBlock(documentId, newBlockType, newIdx, { html: afterHTML });
         const newList = sorted.map((b) => (b.id === blockId ? updated : b));
         newList.splice(idx + 1, 0, newBlock);
         requestAnimationFrame(() => {
@@ -854,15 +857,18 @@ export function BlockEditor({
           <div className="space-y-1">
             {sorted.map((block, index) => {
               const isNonEditable = NON_TEXT_TYPES.includes(block.type);
+              const showAddButton = isNonEditable || block.type === "code";
               return (
                 <div 
                   key={block.id} 
                   onClick={() => setActiveBlockId(block.id)}
-                  className={!readOnly ? "cursor-pointer" : ""}
+                  className={`group/block ${!readOnly ? "cursor-pointer" : ""}`}
                 >
-                  {/* Insert ABOVE for image/divider */}
-                  {isNonEditable && !readOnly && (
-                    <BlockSpacer onInsert={() => insertBlockAt(index)} />
+                  {/* Insert ABOVE - only for image/divider/code */}
+                  {!readOnly && showAddButton && (
+                    <div className="opacity-0 group-hover/block:opacity-100 transition-opacity">
+                      <BlockSpacer onInsert={() => insertBlockAt(index)} />
+                    </div>
                   )}
 
                   <SortableBlockWrapper id={block.id} readOnly={!!readOnly}>
@@ -892,9 +898,11 @@ export function BlockEditor({
                     )}
                   </SortableBlockWrapper>
 
-                  {/* Insert BELOW for image/divider */}
-                  {isNonEditable && !readOnly && (
-                    <BlockSpacer onInsert={() => insertBlockAt(index + 1)} />
+                  {/* Insert BELOW - only for image/divider/code */}
+                  {!readOnly && showAddButton && (
+                    <div className="opacity-0 group-hover/block:opacity-100 transition-opacity">
+                      <BlockSpacer onInsert={() => insertBlockAt(index + 1)} />
+                    </div>
                   )}
                 </div>
               );

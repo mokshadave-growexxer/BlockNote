@@ -34,6 +34,11 @@ export function SharePage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">
+      {doc.coverUrl && (
+        <div className="h-64 w-full overflow-hidden bg-slate-200 dark:bg-slate-800">
+          <img src={doc.coverUrl} alt={doc.title} className="h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+        </div>
+      )}
       <div className="mx-auto max-w-3xl px-4 py-12">
         <div className="mb-2 text-xs font-medium uppercase tracking-widest text-brand-500">
           Shared document — read only

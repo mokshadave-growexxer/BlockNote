@@ -390,7 +390,7 @@ export function DocumentDashboard() {
                 ) : null}
                 {recent.length > 0 ? (
                   <div>
-                    {pinned.length > 0 ? <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.26em] text-slate-500 dark:text-slate-400">Recent Notes</h3> : null}
+                    {pinned.length > 0 ? <h3 className="mb-6 font-serif text-2xl font-semibold text-slate-950 dark:text-white">Recent Notes</h3> : null}
                     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                       {recent.map(renderDocumentCard)}
                     </div>
