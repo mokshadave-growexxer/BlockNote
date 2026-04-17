@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
-import { env } from "./config/env.js";
-import { prisma } from "./lib/prisma.js";
-import { createApp } from "./app.js";
+import { env } from "./src/config/env.js";
+import { prisma } from "./src/lib/prisma.js";
+import { createApp } from "./src/app.js";
 
 const app = createApp();
 const server = createServer(app);
